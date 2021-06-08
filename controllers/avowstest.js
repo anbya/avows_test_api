@@ -1,7 +1,119 @@
 const connection = require("../config/avowstest")
 const bcrypt = require("bcryptjs")
+const jwt = require("jsonwebtoken")
 
 module.exports = {
+    login: (req, res) => {
+        connection.query(`
+        SELECT
+        *
+        FROM user
+        WHERE email_user = '${req.body.EMAIL}' AND status_user = 'ACTIVE'`,(error,result,field)=> {
+            if (error){
+                res.status(400).send({
+                    error
+                });
+            }
+            else{
+                if(result.length >= 1){
+                    let valid = bcrypt.compareSync(req.body.PASS, result[0].pass_user);
+                    if(valid){
+                        let exptoken = "2 days";
+                        let user = {
+                            apiuser: `${result[0].nama_user}`
+                        }
+                        let dataUSer = {
+                            nama_user:`${result[0].nama_user}`,
+                            email_user:`${result[0].email_user}`
+                        }
+                        jwt.sign({user},'anbya@armyAli' ,{expiresIn:exptoken},(err,access_token) => {
+                            res.status(200).send({
+                                "status":"00",
+                                "access_token":`${access_token}`,
+                                "token_type":"bearer",
+                                "expires_in":exptoken,
+                                "dataUSer":dataUSer
+                            });
+                        });
+                    }
+                    else{
+                      res.status(200).send({
+                        "status":"02",
+                        "pesan":`password tidak sesuai.`
+                      });
+                    }
+                } else {
+                    res.status(200).send({
+                        "status":"01",
+                        "pesan":`user tidak ditemukan atau sudah tidak aktif.`
+                    });
+                }
+            }
+        });
+    },
+    getToken: (req, res) => {
+        let email = Buffer.from(req.body.EMAIL, 'base64').toString('ascii');
+        connection.query(`
+        SELECT
+        *
+        FROM user
+        WHERE email_user = '${email}' AND status_user = 'ACTIVE'`,(error,result,field)=> {
+            if (error){
+                res.status(400).send({
+                    error
+                });
+            }
+            else{
+                if(result.length >= 1){
+                    let exptoken = "2 days";
+                    let user = {
+                        apiuser: `${result[0].nama_user}`
+                    }
+                    let dataUSer = {
+                        nama_user:`${result[0].nama_user}`,
+                        email_user:`${result[0].email_user}`
+                    }
+                    jwt.sign({user},'anbya@armyAli' ,{expiresIn:exptoken},(err,access_token) => {
+                        res.status(200).send({
+                            "status":"00",
+                            "access_token":`${access_token}`,
+                            "token_type":"bearer",
+                            "expires_in":exptoken,
+                            "dataUSer":dataUSer
+                        });
+                    });
+                } else {
+                    res.status(200).send({
+                        "status":"01",
+                        "pesan":`user tidak ditemukan atau sudah tidak aktif.`
+                    });
+                }
+            }
+        });
+    },
+    getSales:(req,res) =>{
+        let filter = req.body.ITEMFILTER.length > 0 ? `WHERE x.id_item IN(${req.body.ITEMFILTER})` : ``
+        let query = `
+        SELECT
+        *,
+        (
+            SELECT nama_item FROM item WHERE id_item = x.id_item
+        ) AS nama_item
+        FROM sales AS x ${filter}`
+        connection.query(query,(error,result,field)=> {
+            if (error){
+                console.log('error di sini',query);
+                res.status(400).send({
+                    error
+                });
+            }
+            else{
+                res.status(200).send({
+                    result
+                });
+            }
+        });
+    },
     items:(req,res) =>{
         connection.query(`
         SELECT
